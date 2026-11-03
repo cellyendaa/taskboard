@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import api from '../api'
 import Header from '../components/Header'
+import ConfirmDialog from '../components/ConfirmDialog'
 import TaskModal from '../components/TaskModal'
 import { useToast } from '../components/Toast'
 import { useFocus } from '../components/FocusProvider'
@@ -38,6 +39,8 @@ export default function DashboardBoard() {
   const [modal, setModal] = useState(null) // { status } (tambah) | { task } (edit)
   const [showProjectForm, setShowProjectForm] = useState(false)
   const [projectTitle, setProjectTitle] = useState('')
+  const [deleteConfirmation, setDeleteConfirmation] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
   const [search, setSearch] = useState('')
   const [priorityFilter, setPriorityFilter] = useState('ALL')
@@ -132,16 +135,20 @@ export default function DashboardBoard() {
   }
 
   const deleteProject = async () => {
-    if (!window.confirm(`Hapus project "${activeProject.title}" beserta semua task-nya?`)) return
+    if (!deleteConfirmation || deleteConfirmation.type !== 'project') return
+    setDeleting(true)
     try {
-      await api.delete(`/projects/${activeId}`)
-      const rest = projects.filter((p) => p.id !== activeId)
+      await api.delete(`/projects/${deleteConfirmation.id}`)
+      const rest = projects.filter((p) => p.id !== deleteConfirmation.id)
       setProjects(rest)
       setActiveId(rest[0]?.id ?? null)
+      setDeleteConfirmation(null)
       toast.success('Project dihapus')
       refreshStreak()
     } catch {
       toast.error('Gagal menghapus project')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -169,17 +176,21 @@ export default function DashboardBoard() {
     if (next) applyMove(task, next, endPosition(next))
   }
 
-  const deleteTask = async (task) => {
-    if (!window.confirm(`Hapus task "${task.title}"?`)) return
+  const deleteTask = async () => {
+    if (!deleteConfirmation || deleteConfirmation.type !== 'task') return
     const snapshot = tasks
-    setTasks((ts) => ts.filter((t) => t.id !== task.id))
+    setDeleting(true)
+    setTasks((ts) => ts.filter((t) => t.id !== deleteConfirmation.id))
     try {
-      await api.delete(`/tasks/${task.id}`)
+      await api.delete(`/tasks/${deleteConfirmation.id}`)
+      setDeleteConfirmation(null)
       toast.success('Task dihapus')
       refreshStreak()
     } catch {
       setTasks(snapshot)
       toast.error('Gagal menghapus task')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -288,7 +299,19 @@ export default function DashboardBoard() {
                 </div>
                 <div className="flex gap-2">
                   <button onClick={renameProject} className="rounded-lg px-3 py-1.5 text-sm text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100">✎ Ubah nama</button>
-                  <button onClick={deleteProject} className="rounded-lg px-3 py-1.5 text-sm text-red-600 ring-1 ring-red-200 hover:bg-red-50">Hapus project</button>
+                  <button
+                    onClick={() =>
+                      setDeleteConfirmation({
+                        type: 'project',
+                        id: activeId,
+                        title: activeProject.title,
+                        taskCount: tasks.length,
+                      })
+                    }
+                    className="rounded-lg px-3 py-1.5 text-sm text-red-600 ring-1 ring-red-200 hover:bg-red-50"
+                  >
+                    Hapus project
+                  </button>
                 </div>
               </div>
 
@@ -373,7 +396,10 @@ export default function DashboardBoard() {
                             <div className="flex items-start justify-between gap-2">
                               <h3 className="text-sm font-semibold leading-snug">{task.title}</h3>
                               <button
-                                onClick={(e) => { e.stopPropagation(); deleteTask(task) }}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setDeleteConfirmation({ type: 'task', id: task.id, title: task.title })
+                                }}
                                 className="text-slate-300 opacity-0 transition hover:text-red-500 group-hover:opacity-100"
                                 title="Hapus"
                               >
@@ -446,6 +472,21 @@ export default function DashboardBoard() {
           defaultStatus={modal.status}
           onClose={() => setModal(null)}
           onSaved={handleSaved}
+        />
+      )}
+      {deleteConfirmation && (
+        <ConfirmDialog
+          title={deleteConfirmation.type === 'project' ? 'Hapus project ini?' : 'Hapus task ini?'}
+          itemName={deleteConfirmation.title}
+          description="Tindakan ini tidak dapat dibatalkan. Yakin ingin melanjutkan?"
+          consequence={
+            deleteConfirmation.type === 'project'
+              ? `Project dan ${deleteConfirmation.taskCount} task di dalamnya akan dihapus permanen.`
+              : 'Task ini akan dihapus permanen dari board.'
+          }
+          loading={deleting}
+          onCancel={() => setDeleteConfirmation(null)}
+          onConfirm={deleteConfirmation.type === 'project' ? deleteProject : deleteTask}
         />
       )}
     </div>
