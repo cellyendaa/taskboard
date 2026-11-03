@@ -1,9 +1,10 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import api from '../api'
+import Header from '../components/Header'
 import TaskModal from '../components/TaskModal'
-import ThemeToggle from '../components/ThemeToggle'
 import { useToast } from '../components/Toast'
+import { useFocus } from '../components/FocusProvider'
+import { formatDuration } from '../format'
 
 const COLUMNS = [
   { key: 'TODO', label: 'To Do', dot: 'bg-slate-400' },
@@ -23,10 +24,12 @@ const todayStr = () => new Date().toISOString().slice(0, 10)
 const isOverdue = (t) => t.due_date && t.status !== 'DONE' && t.due_date.slice(0, 10) < todayStr()
 const fmtDate = (d) => new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', timeZone: 'UTC' })
 
+// Minta Header memuat ulang streak (dipanggil setiap status task berubah)
+const refreshStreak = () => window.dispatchEvent(new Event('streak-refresh'))
+
 export default function DashboardBoard() {
-  const navigate = useNavigate()
   const toast = useToast()
-  const user = JSON.parse(localStorage.getItem('user') || 'null')
+  const { timer, start, lastLogged } = useFocus()
 
   const [projects, setProjects] = useState([])
   const [activeId, setActiveId] = useState(null)
@@ -39,7 +42,6 @@ export default function DashboardBoard() {
   const [search, setSearch] = useState('')
   const [priorityFilter, setPriorityFilter] = useState('ALL')
 
-  // drag & drop: dragId = kartu yang diseret, drop = { col, index } tempat jatuh
   const [dragId, setDragId] = useState(null)
   const [drop, setDrop] = useState(null)
 
@@ -68,9 +70,14 @@ export default function DashboardBoard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId])
 
+  // Setiap sesi fokus tercatat, perbarui total fokus task di kartu
+  useEffect(() => {
+    if (!lastLogged) return
+    setTasks((ts) => ts.map((t) => (t.id === lastLogged.id ? { ...t, focus_seconds: lastLogged.focus_seconds } : t)))
+  }, [lastLogged])
+
   const activeProject = projects.find((p) => p.id === activeId)
 
-  // task terurut berdasarkan position, lalu difilter
   const grouped = useMemo(() => {
     const q = search.trim().toLowerCase()
     const g = { TODO: [], IN_PROGRESS: [], DONE: [] }
@@ -92,6 +99,7 @@ export default function DashboardBoard() {
       done,
       overdue: tasks.filter(isOverdue).length,
       pct: tasks.length ? Math.round((done / tasks.length) * 100) : 0,
+      focus: tasks.reduce((sum, t) => sum + (t.focus_seconds || 0), 0),
     }
   }, [tasks])
 
@@ -131,19 +139,22 @@ export default function DashboardBoard() {
       setProjects(rest)
       setActiveId(rest[0]?.id ?? null)
       toast.success('Project dihapus')
+      refreshStreak()
     } catch {
       toast.error('Gagal menghapus project')
     }
   }
 
   // ---------- Task ----------
-  // Optimistic update: UI berubah dulu, rollback kalau request gagal
   const applyMove = async (task, status, position) => {
     const snapshot = tasks
     setTasks((ts) => ts.map((t) => (t.id === task.id ? { ...t, status, position } : t)))
     try {
       await api.patch(`/tasks/${task.id}`, { status, position })
-      if (status !== task.status) toast.success(`Dipindah ke ${LABEL[status]}`)
+      if (status !== task.status) {
+        toast.success(`Dipindah ke ${LABEL[status]}`)
+        refreshStreak()
+      }
     } catch {
       setTasks(snapshot)
       toast.error('Gagal memindahkan task')
@@ -165,6 +176,7 @@ export default function DashboardBoard() {
     try {
       await api.delete(`/tasks/${task.id}`)
       toast.success('Task dihapus')
+      refreshStreak()
     } catch {
       setTasks(snapshot)
       toast.error('Gagal menghapus task')
@@ -175,12 +187,7 @@ export default function DashboardBoard() {
     const isNew = !tasks.some((t) => t.id === saved.id)
     setTasks((ts) => (isNew ? [...ts, saved] : ts.map((t) => (t.id === saved.id ? saved : t))))
     toast.success(isNew ? 'Task ditambahkan' : 'Perubahan disimpan')
-  }
-
-  const logout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    navigate('/login', { replace: true })
+    refreshStreak()
   }
 
   // ---------- Drag & drop + reorder ----------
@@ -205,7 +212,7 @@ export default function DashboardBoard() {
     const colList = grouped[drop.col]
     const origIdx = colList.findIndex((t) => t.id === task.id)
     let index = drop.index
-    if (origIdx !== -1 && origIdx < index) index -= 1 // kartu sendiri dikeluarkan dulu
+    if (origIdx !== -1 && origIdx < index) index -= 1
 
     const list = colList.filter((t) => t.id !== task.id)
     const prev = list[index - 1]?.position
@@ -226,22 +233,9 @@ export default function DashboardBoard() {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 font-bold text-white">T</div>
-            <span className="text-lg font-bold">TaskBoard</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="hidden text-sm text-slate-500 sm:block">{user?.name}</span>
-            <ThemeToggle />
-            <button onClick={logout} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100">Keluar</button>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       <main className="mx-auto max-w-7xl px-6 py-6">
-        {/* Project tabs */}
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {projects.map((p) => (
             <button
@@ -300,7 +294,7 @@ export default function DashboardBoard() {
 
               <div className="mt-4">
                 <div className="mb-1 flex justify-between text-xs text-slate-500">
-                  <span>{stats.done} dari {stats.total} task selesai</span>
+                  <span>{stats.done} dari {stats.total} task selesai · ⏱ {formatDuration(stats.focus)} waktu fokus</span>
                   <span className="font-semibold">{stats.pct}%</span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-slate-100">
@@ -361,6 +355,8 @@ export default function DashboardBoard() {
                     {grouped[col.key].map((task, idx) => {
                       const i = ORDER.indexOf(task.status)
                       const overdue = isOverdue(task)
+                      const focusing = timer?.mode === 'focus' && timer.taskId === task.id
+                      const ringCls = focusing ? 'ring-2 ring-indigo-500' : overdue ? 'ring-1 ring-red-300' : 'ring-1 ring-slate-200'
                       return (
                         <Fragment key={task.id}>
                           {showLine(col.key, idx) && <Line />}
@@ -370,9 +366,9 @@ export default function DashboardBoard() {
                             onDragEnd={resetDrag}
                             onDragOver={(e) => onCardDragOver(e, col.key, idx)}
                             onClick={() => setModal({ task })}
-                            className={`group cursor-grab rounded-xl bg-white p-4 shadow-sm ring-1 transition hover:shadow-md ${
-                              overdue ? 'ring-red-300' : 'ring-slate-200'
-                            } ${dragId === task.id ? 'opacity-40' : ''}`}
+                            className={`group cursor-grab rounded-xl bg-white p-4 shadow-sm transition hover:shadow-md ${ringCls} ${
+                              dragId === task.id ? 'opacity-40' : ''
+                            }`}
                           >
                             <div className="flex items-start justify-between gap-2">
                               <h3 className="text-sm font-semibold leading-snug">{task.title}</h3>
@@ -386,7 +382,7 @@ export default function DashboardBoard() {
                             </div>
                             {task.description && <p className="mt-1 line-clamp-2 text-xs text-slate-500">{task.description}</p>}
 
-                            <div className="mt-3 flex items-center justify-between">
+                            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${PRIORITY_STYLE[task.priority]}`}>{task.priority}</span>
                                 {task.due_date && (
@@ -394,8 +390,22 @@ export default function DashboardBoard() {
                                     📅 {fmtDate(task.due_date)}{overdue && ' · terlambat'}
                                   </span>
                                 )}
+                                {focusing ? (
+                                  <span className="animate-pulse text-[11px] font-semibold text-indigo-600">● Fokus</span>
+                                ) : (
+                                  task.focus_seconds > 0 && <span className="text-[11px] text-slate-400">⏱ {formatDuration(task.focus_seconds)}</span>
+                                )}
                               </div>
                               <div className="flex gap-1">
+                                {task.status !== 'DONE' && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); start(task) }}
+                                    className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-600 ring-1 ring-emerald-200 hover:bg-emerald-100"
+                                    title="Mulai fokus 25 menit"
+                                  >
+                                    ▶
+                                  </button>
+                                )}
                                 <button
                                   disabled={i === 0}
                                   onClick={(e) => { e.stopPropagation(); moveByArrow(task, -1) }}

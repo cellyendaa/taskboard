@@ -1,9 +1,18 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import LoginPage from './pages/LoginPage'
 import DashboardBoard from './pages/DashboardBoard'
+import StatsPage from './pages/StatsPage'
+import { FocusProvider } from './components/FocusProvider'
+import FocusWidget from './components/FocusWidget'
 
-function Protected({ children }) {
-  return localStorage.getItem('token') ? children : <Navigate to="/login" replace />
+function ProtectedLayout() {
+  if (!localStorage.getItem('token')) return <Navigate to="/login" replace />
+  return (
+    <FocusProvider>
+      <Outlet />
+      <FocusWidget />
+    </FocusProvider>
+  )
 }
 
 export default function App() {
@@ -11,7 +20,10 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/" element={<Protected><DashboardBoard /></Protected>} />
+        <Route element={<ProtectedLayout />}>
+          <Route path="/" element={<DashboardBoard />} />
+          <Route path="/stats" element={<StatsPage />} />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

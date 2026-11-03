@@ -26,3 +26,17 @@ body {
 .dark .text-white {
   color: #fff;
 }
+
+@keyframes pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.4) rotate(-6deg); }
+  100% { transform: scale(1); }
+}
+.animate-pop {
+  animation: pop 0.6s ease-out;
+}
+
+@keyframes confetti-fall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
