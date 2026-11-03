@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import api from '../api'
 
-export default function TaskModal({ projectId, defaultStatus, onClose, onCreated }) {
+export default function TaskModal({ projectId, task, defaultStatus, onClose, onSaved }) {
+  const isEdit = Boolean(task)
   const [form, setForm] = useState({
-    title: '',
-    description: '',
-    status: defaultStatus,
-    priority: 'MEDIUM',
-    due_date: '',
+    title: task?.title ?? '',
+    description: task?.description ?? '',
+    status: task?.status ?? defaultStatus ?? 'TODO',
+    priority: task?.priority ?? 'MEDIUM',
+    due_date: task?.due_date ? task.due_date.slice(0, 10) : '',
   })
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -19,9 +20,14 @@ export default function TaskModal({ projectId, defaultStatus, onClose, onCreated
     setError('')
     setSaving(true)
     try {
-      const payload = { ...form, project_id: projectId, due_date: form.due_date || null }
-      const { data } = await api.post('/tasks', payload)
-      onCreated(data)
+      let res
+      if (isEdit) {
+        // due_date "" = hapus tenggat (sesuai logika UpdateTaskInput di backend)
+        res = await api.patch(`/tasks/${task.id}`, form)
+      } else {
+        res = await api.post('/tasks', { ...form, project_id: projectId, due_date: form.due_date || null })
+      }
+      onSaved(res.data)
       onClose()
     } catch (err) {
       setError(err.response?.data?.error || 'Gagal menyimpan task')
@@ -40,10 +46,8 @@ export default function TaskModal({ projectId, defaultStatus, onClose, onCreated
         className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 shadow-2xl"
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">Task baru</h2>
-          <button type="button" onClick={onClose} className="text-2xl leading-none text-slate-400 hover:text-slate-600">
-            ×
-          </button>
+          <h2 className="text-lg font-bold">{isEdit ? 'Edit task' : 'Task baru'}</h2>
+          <button type="button" onClick={onClose} className="text-2xl leading-none text-slate-400 hover:text-slate-600">×</button>
         </div>
 
         <div>
@@ -82,11 +86,9 @@ export default function TaskModal({ projectId, defaultStatus, onClose, onCreated
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">
-            Batal
-          </button>
+          <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">Batal</button>
           <button disabled={saving} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60">
-            {saving ? 'Menyimpan...' : 'Simpan'}
+            {saving ? 'Menyimpan...' : isEdit ? 'Simpan perubahan' : 'Simpan'}
           </button>
         </div>
       </form>

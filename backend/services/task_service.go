@@ -26,6 +26,7 @@ type UpdateTaskInput struct {
 	Status      *string `json:"status" binding:"omitempty,oneof=TODO IN_PROGRESS DONE"`
 	Priority    *string `json:"priority" binding:"omitempty,oneof=LOW MEDIUM HIGH"`
 	DueDate     *string `json:"due_date"` // "" = hapus due date
+	Position    *float64 `json:"position"`
 }
 
 type TaskService struct {
@@ -45,6 +46,11 @@ func (s *TaskService) Create(userID uint, in CreateTaskInput) (*models.Task, err
 	due, err := parseDate(in.DueDate)
 	if err != nil {
 		return nil, ErrInvalidInput
+	}
+
+	pos, err := s.tasks.NextPosition(in.ProjectID)
+	if err != nil {
+		return nil, err
 	}
 
 	t := &models.Task{
@@ -92,6 +98,10 @@ func (s *TaskService) Update(userID, taskID uint, in UpdateTaskInput) (*models.T
 			return nil, ErrInvalidInput
 		}
 		t.DueDate = due
+	}
+
+	if in.Position != nil {
+		t.Position = *in.Position
 	}
 
 	if err := s.tasks.Update(t); err != nil {

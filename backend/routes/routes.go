@@ -37,7 +37,8 @@ func Setup(cfg config.Config, db *gorm.DB) *gin.Engine {
 	{
 		protected.GET("/projects", projectCtl.List)
 		protected.POST("/projects", projectCtl.Create)
-
+		protected.PATCH("/projects/:id", projectCtl.Update)   // tambahkan
+		protected.DELETE("/projects/:id", projectCtl.Delete)  // tambahkan
 		protected.GET("/tasks", taskCtl.List)
 		protected.POST("/tasks", taskCtl.Create)
 		protected.PATCH("/tasks/:id", taskCtl.Update)

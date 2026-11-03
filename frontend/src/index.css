@@ -3,3 +3,26 @@
 body {
   @apply bg-slate-50 text-slate-800 antialiased;
 }
+
+.dark {
+  color-scheme: dark;
+  --color-white: #1a2438;
+  --color-slate-50: #0b1120;
+  --color-slate-100: #131c2e;
+  --color-slate-200: #25324a;
+  --color-slate-300: #334155;
+  --color-slate-400: #64748b;
+  --color-slate-500: #94a3b8;
+  --color-slate-600: #cbd5e1;
+  --color-slate-700: #e2e8f0;
+  --color-slate-800: #f1f5f9;
+  --color-slate-900: #f8fafc;
+  --color-indigo-50: #1e1b4b;
+  --color-indigo-100: #312e81;
+  --color-red-50: #3b1219;
+}
+
+/* teks putih di atas tombol berwarna harus tetap putih */
+.dark .text-white {
+  color: #fff;
+}

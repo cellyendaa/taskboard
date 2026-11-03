@@ -10,7 +10,7 @@ import (
 
 func main() {
 	cfg := config.Load()
-	db := database.Connect(cfg.DBPath)
+	db := database.Connect(cfg.DatabaseURL)
 	r := routes.Setup(cfg, db)
 
 	log.Printf("server running on :%s", cfg.Port)

@@ -27,3 +27,17 @@ func (r *ProjectRepository) FindByIDAndUser(id, userID uint) (*models.Project, e
 	}
 	return &p, nil
 }
+
+func (r *ProjectRepository) Update(p *models.Project) error {
+	return r.db.Save(p).Error
+}
+
+// Delete menghapus project beserta semua task-nya dalam satu transaksi.
+func (r *ProjectRepository) Delete(id uint) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("project_id = ?", id).Delete(&models.Task{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&models.Project{}, id).Error
+	})
+}

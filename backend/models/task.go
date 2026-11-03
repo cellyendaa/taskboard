@@ -19,6 +19,7 @@ type Task struct {
 	Description string     `json:"description"`
 	Status      string     `gorm:"not null;default:TODO" json:"status"`
 	Priority    string     `gorm:"not null;default:MEDIUM" json:"priority"`
+	Position    float64    `gorm:"not null;default:0" json:"position"`
 	DueDate     *time.Time `json:"due_date"`
 	CreatedAt   time.Time  `json:"created_at"`
 }

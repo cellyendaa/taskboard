@@ -5,15 +5,16 @@ import "os"
 type Config struct {
 	Port          string
 	JWTSecret     string
-	DBPath        string
+	DatabaseURL   string
 	AllowedOrigin string
 }
 
 func Load() Config {
 	return Config{
-		Port:          getEnv("PORT", "8080"),
-		JWTSecret:     getEnv("JWT_SECRET", "dev-secret-change-me"),
-		DBPath:        getEnv("DB_PATH", "taskboard.db"),
+		Port:      getEnv("PORT", "8080"),
+		JWTSecret: getEnv("JWT_SECRET", "dev-secret-change-me"),
+		DatabaseURL: getEnv("DATABASE_URL",
+			"host=localhost user=taskboard password=taskboard dbname=taskboard port=5432 sslmode=disable TimeZone=Asia/Jakarta"),
 		AllowedOrigin: getEnv("ALLOWED_ORIGIN", "http://localhost:5173"),
 	}
 }

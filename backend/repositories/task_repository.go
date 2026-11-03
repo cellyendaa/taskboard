@@ -16,8 +16,18 @@ func (r *TaskRepository) Create(t *models.Task) error {
 
 func (r *TaskRepository) FindByProjectID(projectID uint) ([]models.Task, error) {
 	var tasks []models.Task
-	err := r.db.Where("project_id = ?", projectID).Order("created_at ASC").Find(&tasks).Error
+	err := r.db.Where("project_id = ?", projectID).Order("position ASC, id ASC").Find(&tasks).Error
 	return tasks, err
+}
+
+// NextPosition mengembalikan posisi untuk task baru (paling bawah).
+func (r *TaskRepository) NextPosition(projectID uint) (float64, error) {
+	var max float64
+	err := r.db.Model(&models.Task{}).
+		Where("project_id = ?", projectID).
+		Select("COALESCE(MAX(position), 0)").
+		Scan(&max).Error
+	return max + 1, err
 }
 
 // FindByIDForUser memastikan task milik project yang dimiliki user tersebut.

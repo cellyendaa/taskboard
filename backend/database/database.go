@@ -3,14 +3,14 @@ package database
 import (
 	"log"
 
-	"github.com/glebarez/sqlite"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
 	"taskboard/models"
 )
 
-func Connect(path string) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
+func Connect(dsn string) *gorm.DB {
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("failed to connect database: %v", err)
 	}
@@ -18,5 +18,7 @@ func Connect(path string) *gorm.DB {
 	if err := db.AutoMigrate(&models.User{}, &models.Project{}, &models.Task{}); err != nil {
 		log.Fatalf("failed to migrate: %v", err)
 	}
+		// Task lama belum punya posisi: pakai id sebagai urutan awal
+	db.Exec("UPDATE tasks SET position = id WHERE position = 0")
 	return db
 }
