@@ -4,6 +4,7 @@ import (
 	"gorm.io/gorm"
 
 	"taskboard/models"
+	"time"
 )
 
 type TaskRepository struct{ db *gorm.DB }
@@ -49,4 +50,13 @@ func (r *TaskRepository) Update(t *models.Task) error {
 
 func (r *TaskRepository) Delete(id uint) error {
 	return r.db.Delete(&models.Task{}, id).Error
+}
+// CompletedTimes mengembalikan waktu selesai semua task Done milik user sejak 'since'.
+func (r *TaskRepository) CompletedTimes(userID uint, since time.Time) ([]time.Time, error) {
+	var times []time.Time
+	err := r.db.Model(&models.Task{}).
+		Joins("JOIN projects ON projects.id = tasks.project_id").
+		Where("projects.user_id = ? AND tasks.status = ? AND tasks.completed_at >= ?", userID, models.StatusDone, since).
+		Pluck("tasks.completed_at", &times).Error
+	return times, err
 }

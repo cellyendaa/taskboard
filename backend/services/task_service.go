@@ -59,8 +59,14 @@ func (s *TaskService) Create(userID uint, in CreateTaskInput) (*models.Task, err
 		Description: in.Description,
 		Status:      defaultStr(in.Status, models.StatusTodo),
 		Priority:    defaultStr(in.Priority, models.PriorityMedium),
+		Position:    pos,
 		DueDate:     due,
 	}
+	if t.Status == models.StatusDone {
+		now := time.Now()
+		t.CompletedAt = &now
+	}
+
 	if err := s.tasks.Create(t); err != nil {
 		return nil, err
 	}
@@ -87,6 +93,12 @@ func (s *TaskService) Update(userID, taskID uint, in UpdateTaskInput) (*models.T
 		t.Description = *in.Description
 	}
 	if in.Status != nil {
+		if *in.Status == models.StatusDone && t.Status != models.StatusDone {
+			now := time.Now()
+			t.CompletedAt = &now // baru saja diselesaikan
+		} else if *in.Status != models.StatusDone {
+			t.CompletedAt = nil // dikembalikan ke belum selesai
+		}
 		t.Status = *in.Status
 	}
 	if in.Priority != nil {

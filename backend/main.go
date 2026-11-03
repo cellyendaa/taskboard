@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	_ "time/tzdata" // data zona waktu bawaan, supaya LoadLocation("Asia/Jakarta") jalan di Windows
 
 	"taskboard/config"
 	"taskboard/database"

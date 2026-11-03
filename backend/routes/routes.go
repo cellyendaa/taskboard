@@ -32,6 +32,10 @@ func Setup(cfg config.Config, db *gorm.DB) *gin.Engine {
 	api.POST("/register", authCtl.Register)
 	api.POST("/login", authCtl.Login)
 
+	focusRepo := repositories.NewFocusRepository(db)
+	focusSvc := services.NewFocusService(focusRepo, taskRepo)
+	focusCtl := controllers.NewFocusController(focusSvc)
+
 	protected := api.Group("")
 	protected.Use(middlewares.AuthRequired(cfg.JWTSecret))
 	{
@@ -39,6 +43,8 @@ func Setup(cfg config.Config, db *gorm.DB) *gin.Engine {
 		protected.POST("/projects", projectCtl.Create)
 		protected.PATCH("/projects/:id", projectCtl.Update)   // tambahkan
 		protected.DELETE("/projects/:id", projectCtl.Delete)  // tambahkan
+		protected.POST("/focus-sessions", focusCtl.Create)
+		protected.GET("/stats/focus", focusCtl.Stats)
 		protected.GET("/tasks", taskCtl.List)
 		protected.POST("/tasks", taskCtl.Create)
 		protected.PATCH("/tasks/:id", taskCtl.Update)
